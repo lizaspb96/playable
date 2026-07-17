@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Yarn Fever! Unravel Puzzle</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#cfe6f7; touch-action:manipulation;
+    font-family:-apple-system, "SF Pro Rounded", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  #viewport { position:fixed; inset:0; overflow:hidden;
+    background:linear-gradient(180deg,#c3ddf3 0%,#e3f1fb 55%,#eef7fd 100%); }
+  /* Fixed internal stage 720x1280, scaled to fit any orientation */
+  #stage { position:absolute; left:50%; top:50%; width:720px; height:1280px; transform-origin:center center; }
+
+  /* ---------- Header ---------- */
+  #hdr { position:absolute; top:26px; left:0; width:100%; text-align:center; z-index:5; }
+  #hdr .title { display:inline-block; font-size:52px; font-weight:800; color:#7f6bd9; letter-spacing:.5px;
+    text-shadow:0 3px 0 #fff, 0 6px 12px rgba(90,70,180,.25); }
+  #hdr .sub { margin-top:6px; font-size:30px; font-weight:700; color:#5a7fae; text-shadow:0 2px 0 rgba(255,255,255,.8); }
+
+  /* ---------- Trays ---------- */
+  #trays { position:absolute; top:150px; left:0; width:100%; display:flex; justify-content:center; gap:36px; z-index:5; }
+  .tray { position:relative; width:230px; height:180px; border-radius:34px; padding:16px;
+    display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:10px;
+    box-shadow:0 10px 18px rgba(60,90,140,.22), inset 0 -8px 0 rgba(0,0,0,.08); transition:transform .25s; }
+  .tray.pink { background:#fbe3ee; border:14px solid #ef86b5; }
+  .tray.blue { background:#e0effb; border:14px solid #6db3e8; }
+  /* braided border illusion */
+  .tray::before { content:""; position:absolute; inset:-14px; border-radius:34px; pointer-events:none;
+    background:repeating-linear-gradient(45deg, rgba(255,255,255,.35) 0 8px, rgba(255,255,255,0) 8px 20px);
+    -webkit-mask:linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite:xor; mask-composite:exclude; padding:14px; }
+  .slot { width:78px; height:60px; border-radius:50%; background:#f2f2f0;
+    box-shadow:inset 0 5px 8px rgba(0,0,0,.18), 0 2px 0 #fff; position:relative; }
+  .slot.filled-pink { background:#f06aa8; box-shadow:inset 0 -6px 0 rgba(0,0,0,.15), 0 2px 4px rgba(0,0,0,.2); }
+  .slot.filled-blue { background:#4d9fe0; box-shadow:inset 0 -6px 0 rgba(0,0,0,.15), 0 2px 4px rgba(0,0,0,.2); }
+  .tray.done { animation:trayPop .5s ease; }
+  .tray.done::after { content:"✓"; position:absolute; top:-30px; right:-18px; width:64px; height:64px; border-radius:50%;
+    background:#5ecb5e; color:#fff; font-size:42px; font-weight:800; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 8px rgba(0,0,0,.25); }
+  @keyframes trayPop { 0%{transform:scale(1)} 40%{transform:scale(1.12)} 100%{transform:scale(1)} }
+
+  /* ---------- Buffer row ---------- */
+  #buffer { position:absolute; top:372px; left:0; width:100%; display:flex; justify-content:center; gap:14px; z-index:5; }
+  #buffer .bslot { width:66px; height:50px; border-radius:50%; background:#e8e8e6;
+    box-shadow:inset 0 4px 7px rgba(0,0,0,.15), 0 2px 0 #fff; }
+  #left-badge { position:absolute; top:452px; left:44px; background:#cfe0f5; border:4px solid #fff; border-radius:30px;
+    padding:8px 26px; font-size:30px; font-weight:800; color:#fff; text-shadow:0 2px 3px rgba(70,110,170,.6);
+    box-shadow:0 4px 8px rgba(60,90,140,.2); z-index:5; }
+
+  /* ---------- Scene ---------- */
+  #scene { position:absolute; top:430px; left:0; width:720px; height:700px; z-index:2; }
+  #icecream { position:absolute; left:110px; top:0; width:500px; height:700px; transform-origin:50% 90%; }
+  #icecream.jiggle { animation:jig .4s ease; }
+  @keyframes jig { 0%{transform:rotate(0)} 25%{transform:rotate(2.4deg)} 55%{transform:rotate(-2deg)} 100%{transform:rotate(0)} }
+
+  /* ---------- Buttons (yarn pins) ---------- */
+  .ybtn { position:absolute; width:84px; height:84px; z-index:6; cursor:pointer;
+    transition:transform .18s; animation:btnPulse 1.6s ease-in-out infinite; }
+  .ybtn:active { transform:scale(1.18); }
+  @keyframes btnPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.07)} }
+  .ybtn.flying { animation:none; transition:none; z-index:20; pointer-events:none; }
+
+  /* ---------- Hand tutorial ---------- */
+  #hand { position:absolute; width:110px; height:110px; z-index:30; pointer-events:none; font-size:96px;
+    filter:drop-shadow(0 4px 6px rgba(0,0,0,.3)); animation:handTap 1.1s ease-in-out infinite;
+    transform-origin:20% 15%; transition:left .4s, top .4s; }
+  @keyframes handTap { 0%,100%{transform:scale(1) rotate(-12deg)} 50%{transform:scale(.82) rotate(-4deg)} }
+  #tut-text { position:absolute; top:1160px; left:0; width:100%; text-align:center; font-size:38px; font-weight:800;
+    color:#fff; text-shadow:0 3px 0 #7f6bd9, 0 6px 10px rgba(90,70,180,.35); z-index:5; }
+
+  /* ---------- CTA pill ---------- */
+  #cta-pill { position:absolute; bottom:26px; left:50%; transform:translateX(-50%); z-index:25;
+    background:linear-gradient(180deg,#8ee06a,#4cb944); color:#fff; font-size:36px; font-weight:800;
+    padding:20px 64px; border-radius:60px; box-shadow:0 8px 0 #37953a, 0 12px 20px rgba(0,0,0,.25);
+    display:none; animation:ctaBreathe 1.4s ease-in-out infinite; cursor:pointer; letter-spacing:.5px; }
+  @keyframes ctaBreathe { 0%,100%{transform:translateX(-50%) scale(1)} 50%{transform:translateX(-50%) scale(1.06)} }
+
+  /* ---------- End card ---------- */
+  #endcard { position:absolute; inset:0; z-index:40; display:none; align-items:center; justify-content:center;
+    background:rgba(40,60,110,.55); backdrop-filter:blur(3px); }
+  #endcard.show { display:flex; }
+  #endbox { width:560px; background:linear-gradient(180deg,#ffffff,#eef6ff); border-radius:44px; padding:54px 40px 44px;
+    text-align:center; box-shadow:0 20px 50px rgba(0,0,0,.35); animation:endIn .5s cubic-bezier(.2,1.4,.4,1); }
+  @keyframes endIn { from{transform:scale(.6); opacity:0} to{transform:scale(1); opacity:1} }
+  #endbox .icon { width:150px; height:150px; margin:0 auto 20px; }
+  #endbox h1 { font-size:52px; color:#7f6bd9; font-weight:800; text-shadow:0 2px 0 #fff; }
+  #endbox p { font-size:32px; color:#5a7fae; font-weight:700; margin:14px 0 30px; }
+  #endbox .stars { font-size:56px; letter-spacing:6px; margin-bottom:10px; }
+  #end-cta { display:inline-block; background:linear-gradient(180deg,#8ee06a,#4cb944); color:#fff; font-size:42px;
+    font-weight:800; padding:24px 84px; border-radius:60px; box-shadow:0 8px 0 #37953a, 0 12px 20px rgba(0,0,0,.25);
+    cursor:pointer; animation:ctaBreathe2 1.3s ease-in-out infinite; }
+  @keyframes ctaBreathe2 { 0%,100%{transform:scale(1)} 50%{transform:scale(1.07)} }
+  #endbox .brand { margin-top:26px; font-size:26px; font-weight:700; color:#9aa9c4; }
+  #endbox .brand b { color:#7f6bd9; }
+
+  .confetti { position:absolute; width:16px; height:16px; z-index:35; border-radius:3px; pointer-events:none; }
+  .sparkle { position:absolute; z-index:22; font-size:44px; pointer-events:none; animation:spark .7s ease-out forwards; }
+  @keyframes spark { 0%{transform:scale(.3); opacity:1} 100%{transform:scale(1.6) translateY(-40px); opacity:0} }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ybtn, #cta-pill, #end-cta, #hand { animation:none !important; }
+  }
+</style>
+</head>
+<body>
+<div id="viewport">
+  <div id="stage">
+
+    <div id="hdr">
+      <div class="title">Yarn Fever!</div>
+      <div class="sub">LEVEL 2</div>
+    </div>
+
+    <div id="trays">
+      <div class="tray pink" id="tray-pink">
+        <div class="slot"></div><div class="slot"></div><div class="slot"></div>
+      </div>
+      <div class="tray blue" id="tray-blue">
+        <div class="slot"></div><div class="slot"></div><div class="slot"></div>
+      </div>
+    </div>
+
+    <div id="buffer">
+      <div class="bslot"></div><div class="bslot"></div><div class="bslot"></div>
+      <div class="bslot"></div><div class="bslot"></div>
+    </div>
+
+    <div id="left-badge">Left&nbsp;<span id="left-n">6</span></div>
+
+    <div id="scene">
+      <svg id="icecream" viewBox="0 0 500 700" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <!-- knit chevron pattern generator -->
+          <pattern id="knitO" width="46" height="30" patternUnits="userSpaceOnUse">
+            <rect width="46" height="30" fill="#e8863a"/>
+            <path d="M0 22 L11 8 L23 22 L34 8 L46 22" stroke="#c96a20" stroke-width="7" fill="none" stroke-linecap="round"/>
+            <path d="M0 20 L11 6 L23 20 L34 6 L46 20" stroke="#f5a45f" stroke-width="4" fill="none" stroke-linecap="round"/>
+          </pattern>
+          <pattern id="knitP" width="46" height="30" patternUnits="userSpaceOnUse">
+            <rect width="46" height="30" fill="#ee5fa0"/>
+            <path d="M0 22 L11 8 L23 22 L34 8 L46 22" stroke="#cc3f7f" stroke-width="7" fill="none" stroke-linecap="round"/>
+            <path d="M0 20 L11 6 L23 20 L34 6 L46 20" stroke="#f98cc0" stroke-width="4" fill="none" stroke-linecap="round"/>
+          </pattern>
+          <pattern id="knitB" width="46" height="30" patternUnits="userSpaceOnUse">
+            <rect width="46" height="30" fill="#4d9fe0"/>
+            <path d="M0 22 L11 8 L23 22 L34 8 L46 22" stroke="#2f7dbd" stroke-width="7" fill="none" stroke-linecap="round"/>
+            <path d="M0 20 L11 6 L23 20 L34 6 L46 20" stroke="#83c1ef" stroke-width="4" fill="none" stroke-linecap="round"/>
+          </pattern>
+          <pattern id="knitC" width="40" height="26" patternUnits="userSpaceOnUse">
+            <rect width="40" height="26" fill="#f3e3c3"/>
+            <path d="M0 19 L10 7 L20 19 L30 7 L40 19" stroke="#dcc394" stroke-width="6" fill="none" stroke-linecap="round"/>
+            <path d="M0 17 L10 5 L20 17 L30 5 L40 17" stroke="#fbf2dd" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+          </pattern>
+          <pattern id="knitG" width="40" height="26" patternUnits="userSpaceOnUse">
+            <rect width="40" height="26" fill="#8fc94e"/>
+            <path d="M0 19 L10 7 L20 19 L30 7 L40 19" stroke="#6aa62f" stroke-width="6" fill="none" stroke-linecap="round"/>
+            <path d="M0 17 L10 5 L20 17 L30 5 L40 17" stroke="#b3e07c" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+          </pattern>
+          <radialGradient id="shade" cx="35%" cy="30%" r="80%">
+            <stop offset="0%" stop-color="#ffffff" stop-opacity=".28"/>
+            <stop offset="60%" stop-color="#ffffff" stop-opacity="0"/>
+            <stop offset="100%" stop-color="#3a2a55" stop-opacity=".22"/>
+          </radialGradient>
+        </defs>
+
+        <!-- cone -->
+        <path d="M148 470 L250 690 L352 470 Q250 520 148 470 Z" fill="url(#knitO)"/>
+        <path d="M148 470 L250 690 L352 470 Q250 520 148 470 Z" fill="url(#shade)"/>
+        <!-- pink scoop -->
+        <ellipse cx="250" cy="405" rx="150" ry="115" fill="url(#knitP)"/>
+        <ellipse cx="250" cy="405" rx="150" ry="115" fill="url(#shade)"/>
+        <!-- cream garland on pink -->
+        <path d="M120 380 Q150 430 190 395 Q225 445 260 400 Q295 448 330 398 Q360 430 382 378"
+              stroke="url(#knitC)" stroke-width="30" fill="none" stroke-linecap="round"/>
+        <!-- red pompoms on pink scoop -->
+        <circle cx="140" cy="360" r="27" fill="#b33434"/><circle cx="133" cy="352" r="9" fill="#d05252" opacity=".8"/>
+        <circle cx="360" cy="358" r="27" fill="#b33434"/><circle cx="353" cy="350" r="9" fill="#d05252" opacity=".8"/>
+        <circle cx="250" cy="342" r="24" fill="#b33434"/><circle cx="244" cy="335" r="8" fill="#d05252" opacity=".8"/>
+        <!-- cream band between scoops -->
+        <path d="M138 315 Q170 345 205 315 Q235 348 268 316 Q300 348 332 314 Q352 336 366 312"
+              stroke="url(#knitC)" stroke-width="34" fill="none" stroke-linecap="round"/>
+        <!-- blue scoop -->
+        <ellipse cx="252" cy="235" rx="118" ry="95" fill="url(#knitB)"/>
+        <ellipse cx="252" cy="235" rx="118" ry="95" fill="url(#shade)"/>
+        <!-- cream band on blue top -->
+        <path d="M160 172 Q190 200 220 172 Q250 202 280 173 Q310 200 340 170"
+              stroke="url(#knitC)" stroke-width="28" fill="none" stroke-linecap="round"/>
+        <!-- green head -->
+        <ellipse cx="252" cy="120" rx="72" ry="60" fill="url(#knitG)"/>
+        <ellipse cx="252" cy="120" rx="72" ry="60" fill="url(#shade)"/>
+        <circle cx="228" cy="115" r="7" fill="#2c2c2c"/>
+        <circle cx="278" cy="115" r="7" fill="#2c2c2c"/>
+        <!-- cream hat brim + red pompom -->
+        <path d="M188 84 Q215 106 244 84 Q270 108 298 84 Q310 98 320 82"
+              stroke="url(#knitC)" stroke-width="24" fill="none" stroke-linecap="round"/>
+        <circle cx="252" cy="52" r="26" fill="#b33434"/><circle cx="245" cy="45" r="9" fill="#d05252" opacity=".8"/>
+      </svg>
+    </div>
+
+    <svg id="threads" viewBox="0 0 720 1280" width="720" height="1280"
+         style="position:absolute;inset:0;z-index:15;pointer-events:none;overflow:visible"></svg>
+
+    <div id="tut-text">Tap the buttons — sort by color!</div>
+    <div id="hand">👆</div>
+    <div id="cta-pill">PLAY NOW</div>
+
+    <div id="endcard">
+      <div id="endbox">
+        <svg class="icon" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="46" fill="#ee5fa0"/>
+          <circle cx="50" cy="50" r="46" fill="none" stroke="#cc3f7f" stroke-width="4"/>
+          <path d="M12 40 Q50 20 88 40 M8 55 Q50 33 92 55 M12 70 Q50 48 88 70 M22 84 Q50 64 78 84"
+                stroke="#f98cc0" stroke-width="5" fill="none" stroke-linecap="round"/>
+          <path d="M60 78 Q80 84 92 76" stroke="#cc3f7f" stroke-width="6" fill="none" stroke-linecap="round"/>
+        </svg>
+        <div class="stars">⭐⭐⭐</div>
+        <h1>Level complete!</h1>
+        <p>Can you untangle the next one?</p>
+        <div id="end-cta">PLAY NOW</div>
+        <div class="brand">Play free on <b>playgama.com</b> — no download</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ================= CONFIG ================= */
+  // Fallback click-through URL for browser preview. In AppLovin, mraid.open()
+  // routes through the campaign click URL configured in the dashboard.
+  var CLICK_URL = "https://playgama.com/game/yarn-fever-unravel-puzzle";
+  var IDLE_TIMEOUT_MS = 25000;   // no interaction after start -> end card
+  var HARD_TIMEOUT_MS = 55000;   // total cap -> end card
+
+  /* ================= MRAID bootstrap ================= */
+  function whenViewable(cb) {
+    if (typeof mraid === "undefined") { onDomReady(cb); return; }
+    function start() {
+      if (mraid.isViewable()) { cb(); }
+      else {
+        mraid.addEventListener("viewableChange", function h(v) {
+          if (v) { mraid.removeEventListener("viewableChange", h); cb(); }
+        });
+      }
+    }
+    if (mraid.getState() === "loading") {
+      mraid.addEventListener("ready", function r() {
+        mraid.removeEventListener("ready", r); start();
+      });
+    } else { start(); }
+  }
+  function onDomReady(cb) {
+    if (document.readyState === "loading")
+      document.addEventListener("DOMContentLoaded", cb);
+    else cb();
+  }
+  function openStore() {
+    try {
+      if (typeof mraid !== "undefined" && mraid.open) { mraid.open(CLICK_URL); return; }
+    } catch (e) {}
+    window.open(CLICK_URL, "_blank");
+  }
+
+  /* ================= Stage scaling ================= */
+  var STAGE_W = 720, STAGE_H = 1280;
+  function fit() {
+    var vw = (window.visualViewport && window.visualViewport.width)  || window.innerWidth;
+    var vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+    var s = Math.min(vw / STAGE_W, vh / STAGE_H);
+    document.getElementById("stage").style.transform =
+      "translate(-50%, -50%) scale(" + s + ")";
+  }
+  window.addEventListener("resize", fit);
+  window.addEventListener("orientationchange", function(){ setTimeout(fit, 120); });
+  if (window.visualViewport) window.visualViewport.addEventListener("resize", fit);
+  // some webviews report wrong dimensions on first paint - refit a few times
+  [80, 250, 600, 1200].forEach(function (ms) { setTimeout(fit, ms); });
+
+  /* ================= Game state ================= */
+  var stage, hand, leftN, ctaPill, endcard, iceSvg;
+  var started = false, ended = false, taps = 0;
+  var idleTimer = null, hardTimer = null;
+
+  // buttons: color + position on stage (px, stage coords), anchored over the ice cream
+  var BUTTONS = [
+    { c:"pink", x:250, y:790 },
+    { c:"blue", x:395, y:700 },
+    { c:"pink", x:330, y:905 },
+    { c:"blue", x:250, y:640 },
+    { c:"pink", x:430, y:840 },
+    { c:"blue", x:300, y:585 }
+  ];
+  var fills = { pink:0, blue:0 };
+  var COLORS = {
+    pink: { main:"#f06aa8", dark:"#c94a86", thread:"#ffd7e9" },
+    blue: { main:"#4d9fe0", dark:"#3079b4", thread:"#d4eafc" }
+  };
+
+  function buttonSVG(c) {
+    var col = COLORS[c];
+    return '<svg viewBox="0 0 84 84" width="84" height="84">' +
+      '<circle cx="42" cy="46" r="36" fill="rgba(0,0,0,.18)"/>' +
+      '<circle cx="42" cy="42" r="36" fill="' + col.main + '" stroke="' + col.dark + '" stroke-width="5"/>' +
+      '<circle cx="42" cy="42" r="26" fill="none" stroke="' + col.dark + '" stroke-width="3" opacity=".5"/>' +
+      '<circle cx="33" cy="33" r="5" fill="#fff"/><circle cx="51" cy="33" r="5" fill="#fff"/>' +
+      '<circle cx="33" cy="51" r="5" fill="#fff"/><circle cx="51" cy="51" r="5" fill="#fff"/>' +
+      '<path d="M33 33 L51 51 M51 33 L33 51" stroke="' + col.thread + '" stroke-width="6" stroke-linecap="round"/>' +
+      '</svg>';
+  }
+
+  function slotCenter(slotEl) {
+    // element centers in stage coordinates (offsets are unaffected by the scale transform)
+    var x = 0, y = 0, el = slotEl;
+    while (el && el.id !== "stage") { x += el.offsetLeft; y += el.offsetTop; el = el.offsetParent; }
+    return { x: x + slotEl.offsetWidth / 2, y: y + slotEl.offsetHeight / 2 };
+  }
+
+  function resetIdle() {
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(showEnd, IDLE_TIMEOUT_MS);
+  }
+
+  function moveHandTo(btn) {
+    if (!btn) { hand.style.display = "none"; return; }
+    hand.style.left = (parseFloat(btn.style.left) + 30) + "px";
+    hand.style.top  = (parseFloat(btn.style.top) + 42) + "px";
+  }
+
+  function nextHint() {
+    var b = document.querySelector(".ybtn:not(.flying)");
+    moveHandTo(b);
+  }
+
+  function sparkleAt(x, y) {
+    var s = document.createElement("div");
+    s.className = "sparkle"; s.textContent = "✨";
+    s.style.left = (x - 22) + "px"; s.style.top = (y - 22) + "px";
+    stage.appendChild(s);
+    setTimeout(function(){ s.remove(); }, 750);
+  }
+
+  /* ---- v2: thread-unravel flight ---- */
+  var THREAD_STROKE = { pink:"#f06aa8", blue:"#4d9fe0" };
+
+  function easeInOutCubic(t) {
+    return t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  }
+
+  // wiggly path from (sx,sy) to (ex,ey): points along the line with
+  // alternating perpendicular offsets, smoothed with quadratic curves
+  function buildThreadPath(sx, sy, ex, ey) {
+    var dx = ex - sx, dy = ey - sy;
+    var len = Math.sqrt(dx * dx + dy * dy) || 1;
+    var nx = -dy / len, ny = dx / len; // unit normal
+    var N = 5, pts = [[sx, sy]];
+    for (var i = 1; i < N; i++) {
+      var t = i / N;
+      var amp = (46 + Math.random() * 26) * Math.sin(t * Math.PI); // fade at ends
+      var side = (i % 2 === 0 ? 1 : -1);
+      pts.push([sx + dx * t + nx * amp * side, sy + dy * t + ny * amp * side]);
+    }
+    pts.push([ex, ey]);
+    var d = "M" + pts[0][0].toFixed(1) + " " + pts[0][1].toFixed(1);
+    for (var j = 1; j < pts.length - 1; j++) {
+      var mx = (pts[j][0] + pts[j + 1][0]) / 2;
+      var my = (pts[j][1] + pts[j + 1][1]) / 2;
+      d += " Q" + pts[j][0].toFixed(1) + " " + pts[j][1].toFixed(1) + " " + mx.toFixed(1) + " " + my.toFixed(1);
+    }
+    d += " L" + ex.toFixed(1) + " " + ey.toFixed(1);
+    return d;
+  }
+
+  function onButtonTap(ev) {
+    ev.stopPropagation();
+    if (ended) { openStore(); return; }
+    var btn = ev.currentTarget;
+    if (btn.classList.contains("flying")) return;
+
+    taps++;
+    resetIdle();
+    if (taps === 1) {
+      document.getElementById("tut-text").style.opacity = "0";
+      ctaPill.style.display = "block";
+      hardTimer = setTimeout(showEnd, HARD_TIMEOUT_MS);
+    }
+
+    var c = btn.dataset.c;
+    var tray = document.getElementById("tray-" + c);
+    var slot = tray.querySelectorAll(".slot")[fills[c]];
+    var target = slotCenter(slot);
+    var sx = parseFloat(btn.style.left) + 42;
+    var sy = parseFloat(btn.style.top) + 42;
+
+    btn.classList.add("flying");
+    iceSvg.classList.remove("jiggle"); void iceSvg.offsetWidth; iceSvg.classList.add("jiggle");
+
+    var remaining = document.querySelectorAll(".ybtn:not(.flying)").length;
+    leftN.textContent = remaining;
+    nextHint();
+
+    // thread path in the overlay SVG
+    var svgNS = "http://www.w3.org/2000/svg";
+    var threadsSvg = document.getElementById("threads");
+    var path = document.createElementNS(svgNS, "path");
+    path.setAttribute("d", buildThreadPath(sx, sy, target.x, target.y));
+    path.setAttribute("fill", "none");
+    path.setAttribute("stroke", THREAD_STROKE[c]);
+    path.setAttribute("stroke-width", "9");
+    path.setAttribute("stroke-linecap", "round");
+    path.setAttribute("opacity", "0.95");
+    threadsSvg.appendChild(path);
+
+    var L = path.getTotalLength();
+    path.style.strokeDasharray = L + " " + L;
+    path.style.strokeDashoffset = L; // nothing drawn yet
+
+    var TRAVEL = 850, RETRACT = 280;
+    var t0 = null;
+
+    function travelFrame(ts) {
+      if (t0 === null) t0 = ts;
+      var t = Math.min((ts - t0) / TRAVEL, 1);
+      var e = easeInOutCubic(t);
+      var p = path.getPointAtLength(e * L);
+      btn.style.left = (p.x - 42) + "px";
+      btn.style.top  = (p.y - 42) + "px";
+      // spin as the yarn unwinds, shrink toward the slot
+      btn.style.transform = "rotate(" + (e * 720) + "deg) scale(" + (1 - .25 * e) + ")";
+      // thread trails behind the ball, anchored at the start point
+      path.style.strokeDashoffset = L - e * L;
+      if (t < 1) { requestAnimationFrame(travelFrame); }
+      else { requestAnimationFrame(retractFrame); t0 = null; }
+    }
+
+    function retractFrame(ts) {
+      if (t0 === null) t0 = ts;
+      var t = Math.min((ts - t0) / RETRACT, 1);
+      // slide the dash forward so the tail winds into the slot
+      path.style.strokeDashoffset = -t * L;
+      if (t < 1) { requestAnimationFrame(retractFrame); }
+      else { finish(); }
+    }
+
+    function finish() {
+      path.remove();
+      btn.remove();
+      slot.classList.add("filled-" + c);
+      sparkleAt(target.x, target.y);
+      fills[c]++;
+      if (fills[c] === 3) {
+        tray.classList.add("done");
+      }
+      if (fills.pink === 3 && fills.blue === 3) {
+        setTimeout(win, 500);
+      }
+    }
+
+    requestAnimationFrame(travelFrame);
+  }
+
+  function confettiBurst() {
+    var colors = ["#f06aa8", "#4d9fe0", "#8fc94e", "#f5a45f", "#b33434", "#f3e3c3"];
+    for (var i = 0; i < 60; i++) {
+      (function () {
+        var p = document.createElement("div");
+        p.className = "confetti";
+        p.style.background = colors[Math.floor(Math.random() * colors.length)];
+        var x0 = 360 + (Math.random() - .5) * 200;
+        p.style.left = x0 + "px"; p.style.top = "-30px";
+        p.style.transform = "rotate(" + Math.random() * 360 + "deg)";
+        stage.appendChild(p);
+        var dur = 1400 + Math.random() * 1200;
+        p.animate([
+          { transform: p.style.transform + " translate(0,0)", opacity: 1 },
+          { transform: "rotate(" + Math.random() * 720 + "deg) translate(" + ((Math.random() - .5) * 500) + "px,1360px)", opacity: .9 }
+        ], { duration: dur, easing: "cubic-bezier(.2,.6,.6,1)" });
+        setTimeout(function(){ p.remove(); }, dur);
+      })();
+    }
+  }
+
+  function win() {
+    if (ended) return;
+    confettiBurst();
+    setTimeout(showEnd, 900);
+  }
+
+  function showEnd() {
+    if (ended) return;
+    ended = true;
+    if (idleTimer) clearTimeout(idleTimer);
+    if (hardTimer) clearTimeout(hardTimer);
+    hand.style.display = "none";
+    ctaPill.style.display = "none";
+    endcard.classList.add("show");
+  }
+
+  function startGame() {
+    if (started) return;
+    started = true;
+    fit();
+    // place buttons
+    BUTTONS.forEach(function (b) {
+      var el = document.createElement("div");
+      el.className = "ybtn";
+      el.dataset.c = b.c;
+      el.style.left = (b.x - 42) + "px";
+      el.style.top  = (b.y - 42) + "px";
+      el.innerHTML = buttonSVG(b.c);
+      el.addEventListener("pointerdown", onButtonTap);
+      stage.appendChild(el);
+    });
+    nextHint();
+    // Per AppLovin spec, timers start only after the first user interaction
+    // (see onButtonTap: taps === 1).
+  }
+
+  onDomReady(function () {
+    stage   = document.getElementById("stage");
+    hand    = document.getElementById("hand");
+    leftN   = document.getElementById("left-n");
+    ctaPill = document.getElementById("cta-pill");
+    endcard = document.getElementById("endcard");
+    iceSvg  = document.getElementById("icecream");
+
+    ctaPill.addEventListener("pointerdown", function (e) { e.stopPropagation(); openStore(); });
+    document.getElementById("end-cta").addEventListener("pointerdown", function (e) { e.stopPropagation(); openStore(); });
+    endcard.addEventListener("pointerdown", openStore);
+
+    fit();
+    whenViewable(startGame);
+  });
+})();
+</script>
+</body>
+</html>

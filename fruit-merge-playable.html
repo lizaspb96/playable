@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Fruit Merge: Juicy Drop Game</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#f7edd9; touch-action:none;
+    font-family:-apple-system, "SF Pro Rounded", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  #viewport { position:fixed; inset:0; overflow:hidden;
+    background:repeating-linear-gradient(90deg,#f9f1e0 0 90px,#f4e8cf 90px 180px); }
+  #stage { position:absolute; left:50%; top:50%; width:720px; height:1280px; transform-origin:center center; }
+
+  /* ---------- HUD ---------- */
+  #hud { position:absolute; top:20px; left:0; width:100%; z-index:5; }
+  #score-cloud { position:absolute; top:6px; left:50%; transform:translateX(-50%); width:220px; text-align:center;
+    background:#fbf2dd; border:5px solid #f3dfb5; border-radius:40px 40px 50px 50px; padding:12px 0 14px;
+    box-shadow:0 6px 12px rgba(160,120,60,.18); }
+  #score-cloud .trophy { font-size:24px; color:#c98a3a; font-weight:800; }
+  #score { font-size:44px; font-weight:800; color:#c0762a; line-height:1; }
+  #next-badge { position:absolute; top:14px; right:34px; display:flex; align-items:center; gap:12px;
+    background:#fbf2dd; border:5px solid #f3dfb5; border-radius:26px; padding:10px 18px;
+    box-shadow:0 6px 12px rgba(160,120,60,.18); }
+  #next-badge .lbl { font-size:28px; font-weight:800; color:#b98338; letter-spacing:1px; }
+  #next-badge svg { width:52px; height:52px; }
+  #title-tag { position:absolute; top:22px; left:34px; background:#a06bde; color:#fff; font-size:26px; font-weight:800;
+    padding:12px 22px; border-radius:30px; box-shadow:0 5px 10px rgba(120,70,180,.3); }
+
+  /* ---------- Game canvas ---------- */
+  #game { position:absolute; top:130px; left:0; width:720px; height:1000px; z-index:2; }
+
+  /* ---------- Evolution bar ---------- */
+  #evo { position:absolute; top:1140px; left:50%; transform:translateX(-50%); display:flex; gap:14px; align-items:center;
+    background:#fde9b8; border:4px solid #fff; border-radius:40px; padding:12px 26px;
+    box-shadow:0 6px 12px rgba(160,120,60,.2); z-index:5; }
+  #evo svg { width:56px; height:56px; }
+  #evo .arr { font-size:26px; color:#d9a24a; font-weight:800; }
+
+  /* ---------- Hand & tutorial ---------- */
+  #hand { position:absolute; width:110px; height:110px; z-index:30; pointer-events:none; font-size:96px;
+    filter:drop-shadow(0 4px 6px rgba(0,0,0,.3)); animation:handTap 1.1s ease-in-out infinite;
+    transform-origin:20% 15%; }
+  @keyframes handTap { 0%,100%{transform:scale(1) rotate(-12deg)} 50%{transform:scale(.82) rotate(-4deg)} }
+  #tut-text { position:absolute; top:1218px; left:0; width:100%; text-align:center; font-size:36px; font-weight:800;
+    color:#fff; text-shadow:0 3px 0 #d9862a, 0 6px 10px rgba(180,110,40,.4); z-index:5; }
+
+  /* ---------- CTA pill ---------- */
+  #cta-pill { position:absolute; bottom:16px; left:50%; transform:translateX(-50%); z-index:25;
+    background:linear-gradient(180deg,#ffb84d,#f5951f); color:#fff; font-size:34px; font-weight:800;
+    padding:18px 58px; border-radius:60px; box-shadow:0 8px 0 #d0790f, 0 12px 20px rgba(0,0,0,.22);
+    display:none; animation:ctaBreathe 1.4s ease-in-out infinite; cursor:pointer; letter-spacing:.5px; }
+  @keyframes ctaBreathe { 0%,100%{transform:translateX(-50%) scale(1)} 50%{transform:translateX(-50%) scale(1.06)} }
+
+  /* ---------- End card ---------- */
+  #endcard { position:absolute; inset:0; z-index:40; display:none; align-items:center; justify-content:center;
+    background:rgba(120,80,30,.5); backdrop-filter:blur(3px); }
+  #endcard.show { display:flex; }
+  #endbox { width:560px; background:linear-gradient(180deg,#fffdf6,#fdf3dd); border-radius:44px; padding:50px 40px 44px;
+    text-align:center; box-shadow:0 20px 50px rgba(0,0,0,.35); animation:endIn .5s cubic-bezier(.2,1.4,.4,1); }
+  @keyframes endIn { from{transform:scale(.6); opacity:0} to{transform:scale(1); opacity:1} }
+  #endbox .icon { width:150px; height:150px; margin:0 auto 16px; }
+  #endbox h1 { font-size:50px; color:#d9862a; font-weight:800; text-shadow:0 2px 0 #fff; }
+  #endbox p { font-size:31px; color:#a8813f; font-weight:700; margin:14px 0 30px; }
+  #endbox .stars { font-size:54px; letter-spacing:6px; margin-bottom:8px; }
+  #end-cta { display:inline-block; background:linear-gradient(180deg,#ffb84d,#f5951f); color:#fff; font-size:42px;
+    font-weight:800; padding:24px 84px; border-radius:60px; box-shadow:0 8px 0 #d0790f, 0 12px 20px rgba(0,0,0,.22);
+    cursor:pointer; animation:ctaBreathe2 1.3s ease-in-out infinite; }
+  @keyframes ctaBreathe2 { 0%,100%{transform:scale(1)} 50%{transform:scale(1.07)} }
+  #endbox .brand { margin-top:26px; font-size:26px; font-weight:700; color:#c2a877; }
+  #endbox .brand b { color:#a06bde; }
+
+  .popup-score { position:absolute; z-index:22; font-size:44px; font-weight:800; color:#fff;
+    text-shadow:0 3px 0 #d9862a; pointer-events:none; animation:popScore .8s ease-out forwards; }
+  @keyframes popScore { 0%{transform:scale(.4) translateY(0); opacity:1} 100%{transform:scale(1.3) translateY(-70px); opacity:0} }
+
+  @media (prefers-reduced-motion: reduce) {
+    #cta-pill, #end-cta, #hand { animation:none !important; }
+  }
+</style>
+</head>
+<body>
+<div id="viewport">
+  <div id="stage">
+
+    <div id="hud">
+      <div id="title-tag">Fruit Merge</div>
+      <div id="score-cloud"><div class="trophy">&#127942;</div><div id="score">0</div></div>
+      <div id="next-badge"><span class="lbl">NEXT</span><span id="next-icon"></span></div>
+    </div>
+
+    <canvas id="game" width="720" height="1000"></canvas>
+
+    <div id="evo"></div>
+
+    <div id="tut-text">Tap to drop &mdash; merge the same fruits!</div>
+    <div id="hand">&#128070;</div>
+    <div id="cta-pill">PLAY NOW</div>
+
+    <div id="endcard">
+      <div id="endbox">
+        <span class="icon" id="end-icon"></span>
+        <div class="stars">&#11088;&#11088;&#11088;</div>
+        <h1>Juicy!</h1>
+        <p>Can you reach the watermelon?</p>
+        <div id="end-cta">PLAY NOW</div>
+        <div class="brand">Play free on <b>playgama.com</b> &mdash; no download</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ================= CONFIG ================= */
+  var CLICK_URL = "https://playgama.com/game/fruit-merge-playgama";
+  var IDLE_TIMEOUT_MS = 25000;
+  var HARD_TIMEOUT_MS = 60000;
+  var WIN_MERGES = 4;      // merges needed to finish
+  var MAX_DROPS  = 10;     // safety cap on drops before end card
+
+  /* ================= MRAID bootstrap ================= */
+  function whenViewable(cb) {
+    if (typeof mraid === "undefined") { onDomReady(cb); return; }
+    function start() {
+      if (mraid.isViewable()) { cb(); }
+      else {
+        mraid.addEventListener("viewableChange", function h(v) {
+          if (v) { mraid.removeEventListener("viewableChange", h); cb(); }
+        });
+      }
+    }
+    if (mraid.getState() === "loading") {
+      mraid.addEventListener("ready", function r() {
+        mraid.removeEventListener("ready", r); start();
+      });
+    } else { start(); }
+  }
+  function onDomReady(cb) {
+    if (document.readyState === "loading")
+      document.addEventListener("DOMContentLoaded", cb);
+    else cb();
+  }
+  function openStore() {
+    try {
+      if (typeof mraid !== "undefined" && mraid.open) { mraid.open(CLICK_URL); return; }
+    } catch (e) {}
+    window.open(CLICK_URL, "_blank");
+  }
+
+  /* ================= Stage scaling ================= */
+  var STAGE_W = 720, STAGE_H = 1280;
+  function fit() {
+    var vw = (window.visualViewport && window.visualViewport.width)  || window.innerWidth;
+    var vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+    var s = Math.min(vw / STAGE_W, vh / STAGE_H);
+    document.getElementById("stage").style.transform =
+      "translate(-50%, -50%) scale(" + s + ")";
+  }
+  window.addEventListener("resize", fit);
+  window.addEventListener("orientationchange", function(){ setTimeout(fit, 120); });
+  if (window.visualViewport) window.visualViewport.addEventListener("resize", fit);
+  // some webviews report wrong dimensions on first paint - refit a few times
+  [80, 250, 600, 1200].forEach(function (ms) { setTimeout(fit, ms); });
+
+  /* ================= Fruit definitions ================= */
+  // index = evolution order (Suika-style)
+  var FRUITS = [
+    { name:"cherry",     r:30, c1:"#e46060", c2:"#c23e3e", leaf:false },
+    { name:"blueberry",  r:37, c1:"#7188d8", c2:"#4f63b5", leaf:false },
+    { name:"lime",       r:44, c1:"#c3dd58", c2:"#9dbb35", leaf:false },
+    { name:"grape",      r:53, c1:"#a97fe0", c2:"#8257bd", leaf:false },
+    { name:"orange",     r:63, c1:"#f6a53f", c2:"#dd8420", leaf:true  },
+    { name:"apple",      r:76, c1:"#8ed05c", c2:"#6cae3c", leaf:true  },
+    { name:"peach",      r:90, c1:"#f5a8c5", c2:"#e07ba3", leaf:true  }
+  ];
+  var SCORE_PER_MERGE = [2, 4, 8, 14, 22, 32, 46];
+
+  /* ================= Board geometry (canvas coords) ================= */
+  var CW = 720, CH = 1000;
+  var BOX = { left:95, right:625, top:120, bottom:930 };
+  var GRAVITY = 2600, REST = 0.12, FRICTION = 0.985;
+
+  /* ================= State ================= */
+  var stage, canvas, ctx, hand, ctaPill, endcard, scoreEl, nextIconEl;
+  var started = false, ended = false, taps = 0, drops = 0, merges = 0, score = 0;
+  var idleTimer = null, hardTimer = null;
+  var bodies = [];            // {x,y,vx,vy,t,r,scale,dead}
+  var dropX = 360, canDrop = true;
+  var queue = [4, 2, 4, 0, 3, 1, 4, 2, 0, 3]; // fruit type indices to drop
+  var qi = 0;
+  var effects = [];           // merge pop rings {x,y,age,r,color}
+
+  function currentType() { return queue[qi % queue.length]; }
+
+  /* ================= SVG icon (HUD / evo / endcard) ================= */
+  function fruitSVG(t, size) {
+    var f = FRUITS[t];
+    var s = size || 56;
+    var leaf = f.leaf ?
+      '<path d="M50 12 Q58 2 70 6 Q64 18 52 18 Z" fill="#6cae3c"/><rect x="47" y="8" width="6" height="14" rx="3" fill="#7a5230"/>' : "";
+    return '<svg viewBox="0 0 100 100" width="' + s + '" height="' + s + '">' +
+      leaf +
+      '<circle cx="50" cy="56" r="40" fill="' + f.c1 + '" stroke="' + f.c2 + '" stroke-width="5"/>' +
+      '<circle cx="36" cy="42" r="10" fill="#fff" opacity=".35"/>' +
+      '<circle cx="40" cy="56" r="4.5" fill="#3a2c22"/><circle cx="60" cy="56" r="4.5" fill="#3a2c22"/>' +
+      '<path d="M42 68 Q50 75 58 68" stroke="#3a2c22" stroke-width="4" fill="none" stroke-linecap="round"/>' +
+      '<circle cx="31" cy="64" r="5" fill="#fff" opacity=".45"/><circle cx="69" cy="64" r="5" fill="#fff" opacity=".45"/>' +
+      '</svg>';
+  }
+
+  /* ================= Canvas drawing ================= */
+  function drawBoard() {
+    // box
+    ctx.fillStyle = "#d9d0b2";
+    ctx.fillRect(BOX.left - 14, BOX.top - 40, BOX.right - BOX.left + 28, BOX.bottom - BOX.top + 54);
+    ctx.fillStyle = "#cfc5a4";
+    ctx.fillRect(BOX.left, BOX.top - 26, BOX.right - BOX.left, BOX.bottom - BOX.top + 26);
+    ctx.fillStyle = "#e3dabd";
+    ctx.beginPath();
+    ctx.moveTo(BOX.left - 14, BOX.top - 40); ctx.lineTo(BOX.left, BOX.top - 26);
+    ctx.lineTo(BOX.right, BOX.top - 26); ctx.lineTo(BOX.right + 14, BOX.top - 40);
+    ctx.closePath(); ctx.fill();
+    // ground strip below box
+    ctx.fillStyle = "#efc379";
+    ctx.fillRect(0, BOX.bottom + 14, CW, CH - BOX.bottom - 14);
+    // aim guide
+    if (!ended && canDrop) {
+      ctx.setLineDash([16, 18]);
+      ctx.strokeStyle = "rgba(255,252,240,.85)";
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(dropX, BOX.top - 10);
+      ctx.lineTo(dropX, BOX.bottom - 4);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  function drawFruit(b) {
+    var f = FRUITS[b.t];
+    var r = b.r * b.scale;
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    // shadow-ish rim
+    var g = ctx.createRadialGradient(-r * .35, -r * .35, r * .2, 0, 0, r);
+    g.addColorStop(0, f.c1);
+    g.addColorStop(1, f.c2);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+    ctx.lineWidth = Math.max(3, r * .09);
+    ctx.strokeStyle = f.c2;
+    ctx.stroke();
+    // highlight
+    ctx.fillStyle = "rgba(255,255,255,.35)";
+    ctx.beginPath(); ctx.arc(-r * .35, -r * .38, r * .22, 0, Math.PI * 2); ctx.fill();
+    // leaf/stem
+    if (f.leaf && r > 30) {
+      ctx.fillStyle = "#7a5230";
+      ctx.fillRect(-3, -r - 10, 6, 12);
+      ctx.fillStyle = "#6cae3c";
+      ctx.beginPath();
+      ctx.moveTo(2, -r - 6);
+      ctx.quadraticCurveTo(r * .35, -r - 22, r * .55, -r - 4);
+      ctx.quadraticCurveTo(r * .3, -r + 2, 2, -r - 6);
+      ctx.fill();
+    }
+    // face
+    var e = r * .16;
+    ctx.fillStyle = "#3a2c22";
+    ctx.beginPath(); ctx.arc(-r * .28, -r * .02, e * .55, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc( r * .28, -r * .02, e * .55, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "#3a2c22";
+    ctx.lineWidth = Math.max(2.5, r * .07);
+    ctx.lineCap = "round";
+    ctx.beginPath(); ctx.arc(0, r * .12, r * .3, Math.PI * .15, Math.PI * .85); ctx.stroke();
+    // cheeks
+    ctx.fillStyle = "rgba(255,255,255,.45)";
+    ctx.beginPath(); ctx.arc(-r * .55, r * .18, e * .6, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc( r * .55, r * .18, e * .6, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawDropper() {
+    if (ended || !canDrop) return;
+    var t = currentType();
+    var b = { x:dropX, y:BOX.top - 46, t:t, r:FRUITS[t].r, scale:1 };
+    drawFruit(b);
+  }
+
+  function drawEffects(dt) {
+    for (var i = effects.length - 1; i >= 0; i--) {
+      var fx = effects[i];
+      fx.age += dt;
+      var k = fx.age / .45;
+      if (k >= 1) { effects.splice(i, 1); continue; }
+      ctx.strokeStyle = fx.color;
+      ctx.globalAlpha = 1 - k;
+      ctx.lineWidth = 8 * (1 - k);
+      ctx.beginPath();
+      ctx.arc(fx.x, fx.y, fx.r * (0.6 + k * 1.1), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  /* ================= Physics ================= */
+  function stepPhysics(dt) {
+    var i, j, b;
+    for (i = 0; i < bodies.length; i++) {
+      b = bodies[i];
+      if (b.scale < 1) b.scale = Math.min(1, b.scale + dt * 4); // merge pop-in
+      b.vy += GRAVITY * dt;
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.vx *= FRICTION;
+      // walls & floor
+      if (b.x - b.r < BOX.left)  { b.x = BOX.left + b.r;  b.vx = Math.abs(b.vx) * REST; }
+      if (b.x + b.r > BOX.right) { b.x = BOX.right - b.r; b.vx = -Math.abs(b.vx) * REST; }
+      if (b.y + b.r > BOX.bottom) { b.y = BOX.bottom - b.r; b.vy = -Math.abs(b.vy) * REST; if (Math.abs(b.vy) < 40) b.vy = 0; }
+    }
+    // pairwise collisions + merges (few bodies, O(n^2) is fine)
+    for (i = 0; i < bodies.length; i++) {
+      for (j = i + 1; j < bodies.length; j++) {
+        var a = bodies[i], c = bodies[j];
+        if (a.dead || c.dead) continue;
+        var dx = c.x - a.x, dy = c.y - a.y;
+        var dist = Math.sqrt(dx * dx + dy * dy) || .001;
+        var minD = a.r + c.r;
+        if (dist < minD) {
+          if (a.t === c.t && a.t < FRUITS.length - 1 && a.scale === 1 && c.scale === 1) {
+            mergePair(a, c);
+            continue;
+          }
+          // separate
+          var overlap = (minD - dist) / 2;
+          var ux = dx / dist, uy = dy / dist;
+          a.x -= ux * overlap; a.y -= uy * overlap;
+          c.x += ux * overlap; c.y += uy * overlap;
+          // simple impulse along normal
+          var rel = (c.vx - a.vx) * ux + (c.vy - a.vy) * uy;
+          if (rel < 0) {
+            var imp = -rel * (1 + REST) / 2;
+            a.vx -= ux * imp; a.vy -= uy * imp;
+            c.vx += ux * imp; c.vy += uy * imp;
+          }
+        }
+      }
+    }
+    for (i = bodies.length - 1; i >= 0; i--) if (bodies[i].dead) bodies.splice(i, 1);
+  }
+
+  function mergePair(a, c) {
+    a.dead = c.dead = true;
+    var nt = a.t + 1;
+    var nx = (a.x + c.x) / 2, ny = (a.y + c.y) / 2;
+    ny = Math.min(ny, BOX.bottom - FRUITS[nt].r);
+    bodies.push({ x:nx, y:ny, vx:0, vy:-160, t:nt, r:FRUITS[nt].r, scale:.55, dead:false });
+    effects.push({ x:nx, y:ny, age:0, r:FRUITS[nt].r, color:FRUITS[nt].c1 });
+    merges++;
+    score += SCORE_PER_MERGE[nt];
+    scoreEl.textContent = score;
+    popScoreAt(nx, ny, "+" + SCORE_PER_MERGE[nt]);
+    if (merges >= WIN_MERGES) setTimeout(showEnd, 1100);
+  }
+
+  function popScoreAt(cx, cy, text) {
+    var el = document.createElement("div");
+    el.className = "popup-score";
+    el.textContent = text;
+    el.style.left = (cx - 40) + "px";
+    el.style.top = (130 + cy - 30) + "px"; // canvas offset within stage
+    stage.appendChild(el);
+    setTimeout(function(){ el.remove(); }, 850);
+  }
+
+  /* ================= Input ================= */
+  function canvasX(ev) {
+    var rect = canvas.getBoundingClientRect();
+    var x = (ev.clientX - rect.left) / rect.width * CW;
+    var r = FRUITS[currentType()].r;
+    return Math.max(BOX.left + r + 2, Math.min(BOX.right - r - 2, x));
+  }
+
+  function onPointerDown(ev) {
+    if (ended) { openStore(); return; }
+    dropX = canvasX(ev);
+    tryDrop();
+  }
+  function onPointerMove(ev) {
+    if (ended) return;
+    if (ev.pressure > 0 || ev.pointerType === "mouse") dropX = canvasX(ev);
+  }
+
+  function tryDrop() {
+    if (!canDrop || ended) return;
+    taps++;
+    resetIdle();
+    if (taps === 1) {
+      document.getElementById("tut-text").style.opacity = "0";
+      hand.style.display = "none";
+      ctaPill.style.display = "block";
+      hardTimer = setTimeout(showEnd, HARD_TIMEOUT_MS);
+    }
+    var t = currentType();
+    bodies.push({ x:dropX, y:BOX.top - 46, vx:0, vy:120, t:t, r:FRUITS[t].r, scale:1, dead:false });
+    qi++; drops++;
+    updateNextIcon();
+    canDrop = false;
+    setTimeout(function(){ canDrop = true; }, 550);
+    if (drops >= MAX_DROPS) setTimeout(showEnd, 2200);
+  }
+
+  function resetIdle() {
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(showEnd, IDLE_TIMEOUT_MS);
+  }
+
+  function updateNextIcon() {
+    nextIconEl.innerHTML = fruitSVG(currentType(), 52);
+  }
+
+  /* ================= End card ================= */
+  function showEnd() {
+    if (ended) return;
+    ended = true;
+    if (idleTimer) clearTimeout(idleTimer);
+    if (hardTimer) clearTimeout(hardTimer);
+    hand.style.display = "none";
+    ctaPill.style.display = "none";
+    endcard.classList.add("show");
+  }
+
+  /* ================= Main loop ================= */
+  var lastTs = null;
+  function frame(ts) {
+    if (lastTs === null) lastTs = ts;
+    var dt = Math.min((ts - lastTs) / 1000, .033);
+    lastTs = ts;
+    stepPhysics(dt);
+    ctx.clearRect(0, 0, CW, CH);
+    drawBoard();
+    for (var i = 0; i < bodies.length; i++) drawFruit(bodies[i]);
+    drawDropper();
+    drawEffects(dt);
+    requestAnimationFrame(frame);
+  }
+
+  /* ================= Start ================= */
+  function startGame() {
+    if (started) return;
+    started = true;
+    fit();
+    // pre-seed the box: two oranges apart + small fruits, inviting an easy first merge
+    bodies.push({ x:200, y:BOX.bottom - FRUITS[4].r, vx:0, vy:0, t:4, r:FRUITS[4].r, scale:1, dead:false });
+    bodies.push({ x:420, y:BOX.bottom - FRUITS[4].r, vx:0, vy:0, t:4, r:FRUITS[4].r, scale:1, dead:false });
+    bodies.push({ x:560, y:BOX.bottom - FRUITS[1].r, vx:0, vy:0, t:1, r:FRUITS[1].r, scale:1, dead:false });
+    bodies.push({ x:310, y:BOX.bottom - FRUITS[0].r, vx:0, vy:0, t:0, r:FRUITS[0].r, scale:1, dead:false });
+    dropX = 320;
+    updateNextIcon();
+    // hand hovers over the gap between the two oranges
+    hand.style.left = "300px";
+    hand.style.top = "300px";
+    requestAnimationFrame(frame);
+    // Per AppLovin spec, ad timers start only after the first user interaction
+  }
+
+  onDomReady(function () {
+    stage      = document.getElementById("stage");
+    canvas     = document.getElementById("game");
+    ctx        = canvas.getContext("2d");
+    hand       = document.getElementById("hand");
+    ctaPill    = document.getElementById("cta-pill");
+    endcard    = document.getElementById("endcard");
+    scoreEl    = document.getElementById("score");
+    nextIconEl = document.getElementById("next-icon");
+
+    // evolution bar
+    var evo = document.getElementById("evo");
+    var evoHTML = "";
+    for (var i = 0; i < FRUITS.length; i++) {
+      evoHTML += fruitSVG(i, 52);
+      if (i < FRUITS.length - 1) evoHTML += '<span class="arr">&#8250;</span>';
+    }
+    evo.innerHTML = evoHTML;
+
+    document.getElementById("end-icon").innerHTML = fruitSVG(6, 150);
+
+    canvas.addEventListener("pointerdown", onPointerDown);
+    canvas.addEventListener("pointermove", onPointerMove);
+    ctaPill.addEventListener("pointerdown", function (e) { e.stopPropagation(); openStore(); });
+    document.getElementById("end-cta").addEventListener("pointerdown", function (e) { e.stopPropagation(); openStore(); });
+    endcard.addEventListener("pointerdown", openStore);
+
+    fit();
+    whenViewable(startGame);
+  });
+})();
+</script>
+</body>
+</html>
